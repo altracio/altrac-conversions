@@ -1,4 +1,97 @@
 // index.js
+
+var settingAutoStart = function(reading, device) {
+  let intendedSetting = 0;
+  let settingStatusNew = 0;
+  const applicationSettings = device.application_settings || { settings: {} };
+  const applicationSettingsNew = device.application_settings_new || { settings: {} };
+  const autoSetting = 'auto';
+  const autoSettingConfirm = '202';
+
+  if (
+    applicationSettingsNew
+    && applicationSettingsNew.settings
+    && applicationSettingsNew.status === 'new'
+    && (applicationSettingsNew.settings[autoSetting] === 1
+      || applicationSettingsNew.settings[autoSetting] === 0)
+  ) {
+    intendedSetting = applicationSettingsNew.settings[autoSetting] ? 1 : 0;
+    settingStatusNew = 1;
+  } else if (
+    typeof reading[autoSettingConfirm] !== 'undefined'
+    && (reading[autoSettingConfirm] === 0 || reading[autoSettingConfirm] === 1)
+    && reading.date > applicationSettings.date
+  ) {
+    intendedSetting = reading[autoSettingConfirm] ? 1 : 0;
+  } else if (
+    applicationSettings
+    && applicationSettings.settings
+    && (
+      applicationSettings.settings[autoSetting] === 1
+      || applicationSettings.settings[autoSetting] === 0
+    )
+  ) {
+    intendedSetting = applicationSettings.settings[autoSetting] ? 1 : 0;
+  }
+
+  let controllerStatusAuto = 1;
+
+  if (
+    device
+    && device.physical
+    && device.physical.sensorAutoSwitch !== false
+  ) {
+    controllerStatusAuto = reading['143'] > 0 ? 1 : 0;
+  }
+
+  if (status.id === 'notConnected') {
+    textLeft = (<span className="fa fa-wifi fa-2x" />);
+    textRight = (<span className="fa fa-wifi fa-2x" />);
+    textModal = (
+      <FormattedMessage
+        id="setting.auto.disconnected"
+        defaultMessage="Altrac is disconnected. Click {mode} below to change controller mode when Altrac wakes"
+        description="Auto mode change disconnected"
+        values={{
+          mode: intendedSetting ? MAN_LONG : AUTO_LONG,
+        }}
+      />
+    );
+    textSave = intendedSetting ? MAN_LONG : AUTO_LONG;
+    tileColorLeft = colors.deviceProblem;
+    tileColorRight = colors.deviceProblem;
+  } else if (controllerStatusAuto === 1) {
+    textModal = (
+      <FormattedMessage
+        id="setting.auto.change"
+        defaultMessage="Change controller mode to {mode}?"
+        description="Auto mode change"
+        values={{
+          mode: intendedSetting ? MAN_LONG : AUTO_LONG,
+        }}
+      />
+    );
+    textSave = intendedSetting ? MAN_LONG : AUTO_LONG;
+    tileColorLeft = colors.normal;
+    tileColorRight = colors.normal;
+  } else {
+    textModal = (
+      <FormattedMessage
+        id="setting.auto.change"
+        defaultMessage="Change controller mode to {mode}?"
+        description="Auto mode change"
+        values={{
+          mode: intendedSetting ? MAN_LONG : AUTO_LONG,
+        }}
+      />
+    );
+    textSave = intendedSetting ? MAN_LONG : AUTO_LONG;
+    tileColorLeft = colors.normal;
+    tileColorRight = colors.normal;
+  }
+
+}
+
 /* eslint-disable */
 var round = function round(n, d) {
   var decimalPlaces;
@@ -1264,6 +1357,107 @@ var displayFormula = function displayFormula(
   }
 
   switch (formulaValue) {
+    case 'difference':
+      {
+        const [valueKey0, valueKey1] = valueKey;
+        let value0, value1;
+
+        if (typeof valueKey0 === 'object') {
+          value0 = valueCalculator(
+            valueKey0.formula,
+            readingCurrent[valueKey0.valueKey] / (valueKey0.multiplier || 1),
+            valueKey0.context || '',
+            valueKey0.precision || 0
+          );
+          value1 = valueCalculator(
+            valueKey1.formula,
+            readingCurrent[valueKey1.valueKey] / (valueKey1.multiplier || 1),
+            valueKey1.context || '',
+            valueKey1.precision || 0
+          );
+        } else {
+          value0 = valueCalculator(
+            formula,
+            readingCurrent[valueKey0] / multiplierValue,
+            context,
+            precisionValue
+          );
+          value1 = valueCalculator(
+            formula,
+            readingCurrent[valueKey1] / multiplierValue,
+            context,
+            precisionValue
+          );
+        }
+
+        if (isNumber(value0) && isNumber(value1)) {
+          returnValue = Math.abs(value0 - value1);
+        } else {
+          returnValue = 'ERR';
+        }
+      }
+      break;
+    case 'engineState':
+      {
+        const ENGINE_STATE = '134';
+        const ENGINE_STATE_INTENTION = '131';
+        const ENGINE_STATE_TIMESTAMP = '132';
+        const rpm = reading0[ENGINE_STATE];
+        let intention = reading0[ENGINE_STATE_INTENTION] || 0;
+        const timestamp = reading0[ENGINE_STATE_TIMESTAMP];
+        const offRpm = device.physical.offRpm
+        const highRpm = device.physical.highRpm
+        returnValue = engineStateCalculator(
+          rpm,
+          intention,
+          timestamp,
+          offRpm,
+          highRpm
+        );
+      }
+      break;
+    case 'engineStateIntention':
+      returnValue = valueCalculator(
+        formula,
+        readingCurrent[valueKey] / multiplierValue,
+        context
+      );
+      break;
+    case 'engineStateTransition':
+      returnValue = valueCalculator(
+        formula,
+        readingCurrent[valueKey] / multiplierValue,
+        context
+      );
+      break;
+    case 'pumpRunning':
+    case 'pumpShouldBeRunning':
+    case 'pumpStopped':
+      {
+        const [run, signal] = valueKey;
+        const isRun = valueCalculator(
+            run.formula,
+            readingCurrent[run.valueKey] / (run.multiplier || 1),
+            run.context || '',
+            run.precision || 0
+          );
+        const isSignal = valueCalculator(
+            signal.formula,
+            readingCurrent[signal.valueKey] / (signal.multiplier || 1),
+            signal.context || '',
+            signal.precision || 0
+          );
+        if (isNumber(isRun) && isNumber(isSignal)) {
+          switch (formula) {
+            case 'pumpRunning':         returnValue = Boolean( isRun &&  isSignal); break;
+            case 'pumpShouldBeRunning': returnValue = Boolean( isRun && !isSignal); break;
+            case 'pumpStopped':         returnValue = Boolean(!isRun && !isSignal); break;
+          }
+        } else {
+          returnValue = 'ERR';
+        }
+      }
+      break;
     case 'toBoolean':
       returnValue = toBoolean(
         readingCurrent[valueKey] / multiplierValue,
@@ -1412,6 +1606,9 @@ var displayFormula = function displayFormula(
         'f'
       ) || ERROR;
       break;
+    case 'startMode':
+        returnValue = readingCurrent[valueKey] ? 'AUTO' : 'MANUAL';
+        break;
     case 'millisecondsPastExpectedConnection':
       returnValue = millisecondsPastExpectedConnection(
         readingCurrent.date,
