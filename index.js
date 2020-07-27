@@ -1049,7 +1049,7 @@ function valueCalculator(
       returnValue = windDirection(value);
       break;
     case 'mAToBoolean':
-      returnValue = maToBoolean(value);
+      returnValue = mAToBoolean(value);
       break;
     case 'toBoolean':
       returnValue = toBoolean(value);
