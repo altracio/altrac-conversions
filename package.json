@@ -30,7 +30,7 @@
     "eslint": "^7.26.0",
     "eslint-config-airbnb-base": "^14.2.1",
     "eslint-plugin-import": "^2.22.1",
-    "mocha": "^6.2.1",
+    "mocha": "^8.4.0",
     "moment": "^2.24.0",
     "path": "^0.12.7",
     "should": "^13.2.3",
